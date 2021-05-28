@@ -44,7 +44,7 @@ RenderSettings:
 LightmapSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 11
-  m_GIWorkflowMode: 0
+  m_GIWorkflowMode: 1
   m_GISettings:
     serializedVersion: 2
     m_BounceScale: 1
@@ -97,7 +97,8 @@ LightmapSettings:
     m_ExportTrainingData: 0
     m_TrainingDataDestination: TrainingData
     m_LightProbeSampleCountMultiplier: 4
-  m_LightingDataAsset: {fileID: 0}
+  m_LightingDataAsset: {fileID: 112000000, guid: a7f3b084ad8fb6c42aab39b87776d1b2,
+    type: 2}
   m_UseShadowmask: 1
 --- !u!196 &4
 NavMeshSettings:
@@ -268,8 +269,10 @@ MonoBehaviour:
     type: 3}
   vertexObj: {fileID: 2497985206403221451, guid: 657116a2128e6ed4999abda8cd8c12af,
     type: 3}
-  wallMaterial: {fileID: 2100000, guid: 6102bf896661f1e42bda69b036ee9533, type: 2}
+  lineMaterial: {fileID: 2100000, guid: 6102bf896661f1e42bda69b036ee9533, type: 2}
+  wallMaterial: {fileID: 2100000, guid: eaa9174c72f4687418baf2fa31907665, type: 2}
   floorMaterial: {fileID: 2100000, guid: d7be44a0cf77f524aa3fafdefe995c85, type: 2}
+  vertexMaterial: {fileID: 10302, guid: 0000000000000000f000000000000000, type: 0}
 --- !u!4 &1972410428
 Transform:
   m_ObjectHideFlags: 0

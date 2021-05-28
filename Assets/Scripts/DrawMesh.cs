@@ -23,14 +23,18 @@ public class DrawMesh : MonoBehaviour
 
     bool isInCollision = false;
     public GameObject vertexObj;
-    public GameObject verterParentObj;
+    GameObject verterParentObj;
 
     bool pauseDrawing = false;
     CurrStage currStage = CurrStage.None;
+
+    public Material lineMaterial;
     public Material wallMaterial;
     public Material floorMaterial;
 
-    Mesh createdMesh;
+    Mesh createdWallMesh;
+    Mesh createdFloorMesh;
+
     int selectedVerticesIndex = -1;
 
 
@@ -43,10 +47,8 @@ public class DrawMesh : MonoBehaviour
 
     private void Update()
     {
-
         if (pauseDrawing)
             return;
-
 
         if (Input.GetMouseButtonDown(0))
             OnMouseClicked();
@@ -87,13 +89,12 @@ public class DrawMesh : MonoBehaviour
 
             if (touchPositions.Count >= 2 && Vector3.Distance(worldPosition, touchPositions[0]) <= 1)
             {
-                // currRenderer.SetPosition(currRenderer.positionCount - 1, touchPositions[0]);
                 currRenderer.loop = true;
                 currRenderer.positionCount -= 1;
 
                  currStage = CurrStage.ModifyingBounds;
                 CreateWalls();
-                //CreateFloor();
+                CreateFloor();
                 return;
             }
 
@@ -121,17 +122,14 @@ public class DrawMesh : MonoBehaviour
 
             //Get the nearest vector of current click.
             int i = 0;
-             foreach(Vector3 vertices in createdMesh.vertices)
+             foreach(Vector3 vertices in createdWallMesh.vertices)
             {
                 if(Vector3.Distance(worldPosition, vertices) < 2f && vertices.y < wallHeight)
                 {
-                    Debug.Log("Val = " + vertices);
                     selectedVerticesIndex = i;
                 }
                 i++;
             }
-
-            Debug.Log("selectedVerticesIndex = " + selectedVerticesIndex+ "  createdMesh.vertices.Length = " + createdMesh.vertices.Length);
 
         }
 
@@ -147,7 +145,6 @@ public class DrawMesh : MonoBehaviour
 
         if (currStage == CurrStage.DrawingBounds)
             UpdateLineRenderer(touchPositions[touchPositions.Count - 1], worldPosition);
-
     }
 
     public void OnMouseButtonReleased()
@@ -161,31 +158,41 @@ public class DrawMesh : MonoBehaviour
         Vector3 worldPosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
         worldPosition = new Vector3(worldPosition.x, YDistFromGround, worldPosition.z);
 
-        Debug.Log("Move mesh came selectedVerticesIndex = "+ selectedVerticesIndex+ "  createdMesh.vertices.Length  = " + createdMesh.vertices.Length);
+        Vector3[] currWallVertices = createdWallMesh.vertices;
+        Vector3[] currFloorVertices = createdFloorMesh.vertices;
 
-        Vector3[] currVertices = createdMesh.vertices;
 
-
-        for (var i = 0; i < currVertices.Length; i++)
+        for (var i = 0; i < currWallVertices.Length; i++)
         {
             if (i == selectedVerticesIndex)
             {
-                currVertices[i] = worldPosition;
+                currWallVertices[i] = worldPosition;
                 currRenderer.SetPosition(i / 2, worldPosition);
                 verterParentObj.transform.GetChild(i / 2).transform.position = worldPosition;
             }
             else if (i == selectedVerticesIndex + 1)
-                currVertices[i] = worldPosition + Vector3.up * wallHeight;
+                currWallVertices[i] = worldPosition + Vector3.up * wallHeight;
         }
 
-        createdMesh.vertices = currVertices;
 
 
-        //createdMesh.vertices[selectedVerticesIndex+1] = worldPosition + Vector3.up* wallHeight;
-       // createdMesh.vertices[selectedVerticesIndex] = worldPosition;
-        createdMesh.RecalculateNormals();
-        createdMesh.RecalculateBounds();
-        createdMesh.RecalculateTangents();
+        createdWallMesh.vertices = currWallVertices;
+        createdWallMesh.RecalculateNormals();
+        createdWallMesh.RecalculateBounds();
+        createdWallMesh.RecalculateTangents();
+
+        for (var i = 0; i < currFloorVertices.Length; i++)
+        {
+            if (i == selectedVerticesIndex/2)
+                currFloorVertices[i] = worldPosition;
+        }
+
+
+        createdFloorMesh.vertices = currFloorVertices;
+        createdFloorMesh.RecalculateNormals();
+        createdFloorMesh.RecalculateBounds();
+        createdFloorMesh.RecalculateTangents();
+
     }
 
     public void CreateWalls()
@@ -200,7 +207,6 @@ public class DrawMesh : MonoBehaviour
         currRenderer.GetPositions(lineVertices);
         Vector3[] wallVertices = new Vector3[currRenderer.positionCount * 2];
 
-
         int i = 0;
         foreach (Vector3 vectorPoints in lineVertices)
         {
@@ -209,28 +215,20 @@ public class DrawMesh : MonoBehaviour
             i = i + 2;
         }
 
-        Debug.Log("wallVertices = " + wallVertices.Length);
-
         int[] triangles = new int[(wallVertices.Length) * 3];
-
-        Debug.Log("wallVertices = " + triangles.Length);
 
         for (i = 0; i < wallVertices.Length - 2; i+=2)
         {
-            Debug.Log("i = " + i);
-            Debug.Log("i end = " + (i * 3 + 5));
-            
             triangles[i * 3] = i;
-            triangles[i * 3 + 1] = i+1;
-            triangles[i * 3 + 2] = i+3;
+            triangles[i * 3 + 1] = i + 1;
+            triangles[i * 3 + 2] = i + 3;
 
             triangles[i * 3 + 3] = i;
             triangles[i * 3 + 4] = i + 3;
             triangles[i * 3 + 5] = i + 2;
         }
 
-
-        Debug.Log(" i = " + i);
+        //Drawing last traingle and mapping it to the origin.
         triangles[i * 3] = i;
         triangles[i * 3 + 1] = i + 1;
         triangles[i * 3 + 2] = 1;
@@ -248,7 +246,7 @@ public class DrawMesh : MonoBehaviour
         wallObj.GetComponent<MeshFilter>().mesh = wallMesh;
         wallObj.GetComponent<MeshRenderer>().material = wallMaterial;
 
-        createdMesh = wallMesh;
+        createdWallMesh = wallMesh;
     }
 
     public void CreateFloor()
@@ -259,26 +257,57 @@ public class DrawMesh : MonoBehaviour
 
         Mesh floorMesh = new Mesh();
 
-
+        Debug.Log("Initialize val = " + currRenderer.positionCount);
         Vector3[] floorVertices = new Vector3[currRenderer.positionCount];
+        int i = 0;
+
+        for(i = 0; i< floorVertices.Length;i++)
+        {
+            floorVertices[i] = currRenderer.GetPosition(i);
+        }
+
 
         Debug.Log("floorVertices = " + floorVertices.Length);
 
-        int[] triangles = new int[floorVertices.Length * 3];
+        int[] triangles = new int[(floorVertices.Length-1) * 3];
 
-        for (int i = 0; i < floorVertices.Length - 2; i += 2)
+        Debug.Log("floortriangles = " + triangles.Length);
+
+        int j = 0;
+        for (i = 1; i <= floorVertices.Length - 1; i++)
         {
+            Vector3 vec1, vec2, vec3;
 
-             {
-                triangles[i * 3] = i;
-                triangles[i * 3 + 1] = i + 1;
-                triangles[i * 3 + 2] = i + 3;
+            vec1 = floorVertices[i - 1];
+            vec2 = floorVertices[i];
+            if ((i + 1) >= floorVertices.Length)
+                vec3 = floorVertices[0];
+            else
+                vec3 = floorVertices[i +1];
 
-                triangles[i * 3 + 3] = i;
-                triangles[i * 3 + 4] = i + 3;
-                triangles[i * 3 + 5] = i + 2;
-            }
+            Vector3 finalVec1, finalVec2, finalVec3;
+
+            finalVec1 = (vec1 + vec2) / 2;
+            finalVec2 = (vec2 + vec3) / 2;
+            finalVec3 = (vec3 + vec1) / 2;
+
+            GameObject tempObj1 = new GameObject("finalVec1");
+            tempObj1.transform.position = finalVec1;
+            Debug.Log("1 = " + currRenderer.bounds.Contains(finalVec1));
+            Debug.Log("2 = " + currRenderer.bounds.Contains(finalVec2));
+            Debug.Log("3 = " + currRenderer.bounds.Contains(finalVec3));
+
+
+            triangles[j] = i-1;
+            triangles[j+1] = i;
+            if((i + 1)>= floorVertices.Length)
+                triangles[j + 2] = 0;
+            else 
+                triangles[j + 2] = i+1;
+            j += 3;
         }
+
+        Debug.Log("Draw i final = " + i);
 
         floorMesh.vertices = floorVertices;
         floorMesh.triangles = triangles;
@@ -288,12 +317,15 @@ public class DrawMesh : MonoBehaviour
 
         floorObj.GetComponent<MeshFilter>().mesh = floorMesh;
         floorObj.GetComponent<MeshRenderer>().material = floorMaterial;
+
+        createdFloorMesh = floorMesh;
     }
 
     LineRenderer CreateLineRenderer()
     {
         GameObject obj = GameObject.Instantiate(lineRendererPrefab, touchPositions[touchPositions.Count - 1], Quaternion.identity);
         LineRenderer currLineRenderer = obj.GetComponent<LineRenderer>();
+        currLineRenderer.material = lineMaterial;
         currLineRenderer.positionCount = 1;
         currLineRenderer.SetPosition(currLineRenderer.positionCount - 1, touchPositions[touchPositions.Count - 1]);
         currLineRenderer.positionCount++;
@@ -321,7 +353,6 @@ public class DrawMesh : MonoBehaviour
 
     bool CheckIntersection()
     {
-
         if (currRenderer == null || currRenderer.positionCount < 4)
             return false;
 
