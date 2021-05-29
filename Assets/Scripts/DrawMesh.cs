@@ -1,8 +1,8 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.EventSystems;
 
+//Enum to seperate stages for conditional checking
 public enum CurrStage
 {
     None,
@@ -10,31 +10,43 @@ public enum CurrStage
     ModifyingBounds
 }
 
-
+//Script to draw walls and basic floor.
 public class DrawMesh : MonoBehaviour
 {
-
+    // Touch position list to store the touch positions.
     public List<Vector3> touchPositions;
+
+    //Line renderer related.
     public GameObject lineRendererPrefab;
     LineRenderer currRenderer;
+
     bool isFocus = true;
+
+    //Distance of points from the ground.
     float YDistFromGround = 0.1f;
+    //Height of the walls.
     float wallHeight = 2f;
 
+    //Collission checking variable to prevent moving to next stage when there is collision.
     bool isInCollision = false;
+    
+    //Vertex visual points objects
     public GameObject vertexObj;
     GameObject verterParentObj;
 
-    bool pauseDrawing = false;
+    //Assign default stage as none
     CurrStage currStage = CurrStage.None;
 
+    //Material Related
     public Material lineMaterial;
     public Material wallMaterial;
     public Material floorMaterial;
 
+    //Mesh related
     Mesh createdWallMesh;
     Mesh createdFloorMesh;
 
+    //Current selected vertex index used for moving during ModifyingBounds Stage
     int selectedVerticesIndex = -1;
 
 
@@ -47,15 +59,14 @@ public class DrawMesh : MonoBehaviour
 
     private void Update()
     {
-        if (pauseDrawing)
-            return;
-
         if (Input.GetMouseButtonDown(0))
             OnMouseClicked();
 
         if (currStage == CurrStage.DrawingBounds)
         {
             OnMouseHeld();
+
+            //Check collision during mouse movements
 
             if (CheckIntersection())
                 isInCollision = true;
@@ -66,24 +77,26 @@ public class DrawMesh : MonoBehaviour
         {
             if(selectedVerticesIndex != -1)
             MoveMesh();
+
         }
 
     }
 
     public void OnMouseClicked()
     {
-
+        // Don't handle mouse click when is not in focus.
         if (!isFocus)
         {
             isFocus = true;
             return;
         }
+
         Vector3 worldPosition = Camera.main.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, 5f));
         worldPosition = new Vector3(worldPosition.x, YDistFromGround, worldPosition.z);
 
         if (currStage == CurrStage.DrawingBounds || currStage == CurrStage.None)
         {
-
+            // Assign DrawingBounds as the initial stage if the curr stage is none.
             if (currStage == CurrStage.None)
                 currStage = CurrStage.DrawingBounds;
 
@@ -91,8 +104,7 @@ public class DrawMesh : MonoBehaviour
             {
                 currRenderer.loop = true;
                 currRenderer.positionCount -= 1;
-
-                 currStage = CurrStage.ModifyingBounds;
+                currStage = CurrStage.ModifyingBounds;
                 CreateWalls();
                 CreateFloor();
                 return;
@@ -125,9 +137,7 @@ public class DrawMesh : MonoBehaviour
              foreach(Vector3 vertices in createdWallMesh.vertices)
             {
                 if(Vector3.Distance(worldPosition, vertices) < 2f && vertices.y < wallHeight)
-                {
                     selectedVerticesIndex = i;
-                }
                 i++;
             }
 
@@ -149,8 +159,24 @@ public class DrawMesh : MonoBehaviour
 
     public void OnMouseButtonReleased()
     {
-        Vector3 worldPosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        //This is for reseting selected points during mesh movement stage.
         selectedVerticesIndex = -1;
+    }
+
+
+    public bool ContainsPoint(Vector3 p)
+    {
+        int j = currRenderer.positionCount - 1;
+        var inside = false;
+        for (int i = 0; i < currRenderer.positionCount; j = i++)
+        {
+            Vector3 pi = currRenderer.GetPosition(i);
+            Vector3 pj = currRenderer.GetPosition(j);
+            if (((pi.z <= p.z && p.z < pj.z) || (pj.z <= p.z && p.z < pi.z)) &&
+                (p.x < (pj.x - pi.x) * (p.z - pi.z) / (pj.z - pi.z) + pi.x))
+                inside = !inside;
+        }
+        return inside;
     }
 
     void MoveMesh()
@@ -159,27 +185,35 @@ public class DrawMesh : MonoBehaviour
         worldPosition = new Vector3(worldPosition.x, YDistFromGround, worldPosition.z);
 
         Vector3[] currWallVertices = createdWallMesh.vertices;
-        Vector3[] currFloorVertices = createdFloorMesh.vertices;
-
+        Vector2[] UV = createdWallMesh.uv;
 
         for (var i = 0; i < currWallVertices.Length; i++)
         {
+            //This is for the ground vertex
             if (i == selectedVerticesIndex)
             {
                 currWallVertices[i] = worldPosition;
                 currRenderer.SetPosition(i / 2, worldPosition);
                 verterParentObj.transform.GetChild(i / 2).transform.position = worldPosition;
             }
+            //This is for the wall vertex
             else if (i == selectedVerticesIndex + 1)
-                currWallVertices[i] = worldPosition + Vector3.up * wallHeight;
+                currWallVertices[i] = worldPosition + Vector3.up * wallHeight; 
+
+            UV[i] = currWallVertices[i];
         }
 
-
-
+        //Assign and recalculate bounds.
         createdWallMesh.vertices = currWallVertices;
+        createdWallMesh.uv = UV;
         createdWallMesh.RecalculateNormals();
         createdWallMesh.RecalculateBounds();
         createdWallMesh.RecalculateTangents();
+
+        if (createdFloorMesh == null)
+            return;
+
+        Vector3[] currFloorVertices = createdFloorMesh.vertices;
 
         for (var i = 0; i < currFloorVertices.Length; i++)
         {
@@ -187,7 +221,7 @@ public class DrawMesh : MonoBehaviour
                 currFloorVertices[i] = worldPosition;
         }
 
-
+        //Assign and recalculate bounds.
         createdFloorMesh.vertices = currFloorVertices;
         createdFloorMesh.RecalculateNormals();
         createdFloorMesh.RecalculateBounds();
@@ -206,17 +240,23 @@ public class DrawMesh : MonoBehaviour
         Vector3[] lineVertices = new Vector3[currRenderer.positionCount];
         currRenderer.GetPositions(lineVertices);
         Vector3[] wallVertices = new Vector3[currRenderer.positionCount * 2];
+        Vector2[] UV = new Vector2[currRenderer.positionCount * 2];
 
         int i = 0;
+        //Wall has normal touch points and for every touch points there is additional point
+        //The additional point is touch point + wall height.
         foreach (Vector3 vectorPoints in lineVertices)
         {
             wallVertices[i] = vectorPoints;
             wallVertices[i+1] = vectorPoints + Vector3.up * wallHeight;
+            UV[i] = new Vector2(wallVertices[i].x, wallVertices[i].z);
+            UV[i+1] = new Vector2(wallVertices[i+1].x, wallVertices[i+1].z);
             i = i + 2;
         }
 
         int[] triangles = new int[(wallVertices.Length) * 3];
 
+        //Triangles are drawn in clock wise order to prevent backface culling and mesh not appearing.
         for (i = 0; i < wallVertices.Length - 2; i+=2)
         {
             triangles[i * 3] = i;
@@ -237,66 +277,49 @@ public class DrawMesh : MonoBehaviour
         triangles[i * 3 + 4] = 1;
         triangles[i * 3 + 5] = 0;
 
+        //Assign the vertices
         wallMesh.vertices = wallVertices;
+        wallMesh.uv = UV;
         wallMesh.triangles = triangles;
-
-        wallMesh.RecalculateBounds();
-        wallMesh.RecalculateNormals();
-
         wallObj.GetComponent<MeshFilter>().mesh = wallMesh;
         wallObj.GetComponent<MeshRenderer>().material = wallMaterial;
 
+        //Recalculate the bounds
+        wallMesh.RecalculateBounds();
+        wallMesh.RecalculateTangents();
+
         createdWallMesh = wallMesh;
     }
-
+  
     public void CreateFloor()
     {
+
         GameObject floorObj = new GameObject("FloorObj");
         floorObj.AddComponent<MeshFilter>();
         floorObj.AddComponent<MeshRenderer>();
 
         Mesh floorMesh = new Mesh();
 
-        Debug.Log("Initialize val = " + currRenderer.positionCount);
+        //Problem in surface generation. Need to use Traingulation for the rest of the complex shapes
+        if (currRenderer.positionCount >= 5)
+            return;
+
         Vector3[] floorVertices = new Vector3[currRenderer.positionCount];
+        Vector2[] UV = new Vector2[currRenderer.positionCount];
+
         int i = 0;
 
         for(i = 0; i< floorVertices.Length;i++)
         {
             floorVertices[i] = currRenderer.GetPosition(i);
+            UV[i] = new Vector2(currRenderer.GetPosition(i).x, currRenderer.GetPosition(i).z);
         }
 
-
-        Debug.Log("floorVertices = " + floorVertices.Length);
-
         int[] triangles = new int[(floorVertices.Length-1) * 3];
-
-        Debug.Log("floortriangles = " + triangles.Length);
 
         int j = 0;
         for (i = 1; i <= floorVertices.Length - 1; i++)
         {
-            Vector3 vec1, vec2, vec3;
-
-            vec1 = floorVertices[i - 1];
-            vec2 = floorVertices[i];
-            if ((i + 1) >= floorVertices.Length)
-                vec3 = floorVertices[0];
-            else
-                vec3 = floorVertices[i +1];
-
-            Vector3 finalVec1, finalVec2, finalVec3;
-
-            finalVec1 = (vec1 + vec2) / 2;
-            finalVec2 = (vec2 + vec3) / 2;
-            finalVec3 = (vec3 + vec1) / 2;
-
-            GameObject tempObj1 = new GameObject("finalVec1");
-            tempObj1.transform.position = finalVec1;
-            Debug.Log("1 = " + currRenderer.bounds.Contains(finalVec1));
-            Debug.Log("2 = " + currRenderer.bounds.Contains(finalVec2));
-            Debug.Log("3 = " + currRenderer.bounds.Contains(finalVec3));
-
 
             triangles[j] = i-1;
             triangles[j+1] = i;
@@ -304,14 +327,17 @@ public class DrawMesh : MonoBehaviour
                 triangles[j + 2] = 0;
             else 
                 triangles[j + 2] = i+1;
+
             j += 3;
         }
 
-        Debug.Log("Draw i final = " + i);
-
+        //Assign values to the mesh
         floorMesh.vertices = floorVertices;
         floorMesh.triangles = triangles;
+        floorMesh.uv = UV;
 
+        //Recalculate bounds
+        floorMesh.RecalculateTangents();
         floorMesh.RecalculateBounds();
         floorMesh.RecalculateNormals();
 
@@ -323,6 +349,7 @@ public class DrawMesh : MonoBehaviour
 
     LineRenderer CreateLineRenderer()
     {
+        //Create the line renderer based on the touchPoints.
         GameObject obj = GameObject.Instantiate(lineRendererPrefab, touchPositions[touchPositions.Count - 1], Quaternion.identity);
         LineRenderer currLineRenderer = obj.GetComponent<LineRenderer>();
         currLineRenderer.material = lineMaterial;
@@ -334,12 +361,15 @@ public class DrawMesh : MonoBehaviour
 
     void UpdateLineRenderer(Vector3 startPosition, Vector3 endPosition)
     {
+        //Update the line renderer's current editing point based on touchPosition.
         currRenderer.SetPosition(currRenderer.positionCount - 1, startPosition);
         currRenderer.SetPosition(currRenderer.positionCount - 1, endPosition);
     }
 
     private void OnApplicationFocus(bool focus)
     {
+        //This is to resume the mesh plotting when cursor is moved away from the play window.
+
         if (!focus)
             isFocus = false;
 
@@ -361,9 +391,8 @@ public class DrawMesh : MonoBehaviour
         Vector3 currLineEndPos = currRenderer.GetPosition(currRenderer.positionCount - 2);
         Vector3 currLineStartPos = currRenderer.GetPosition(currRenderer.positionCount - 1);
 
-        Vector3 dirLine1 = currLineStartPos - currLineEndPos;
-        Vector3 dirLine2 = currRenderer.GetPosition(currRenderer.positionCount - 3) - currRenderer.GetPosition(currRenderer.positionCount - 4);
-
+        // Skip the last point as we are checking it seperately. If we check that in this, it will always be colliding,
+        // since it touches the last sharing point.
         for (int i = 0; i < currRenderer.positionCount - 3; i++)
         {
             if (isLinesIntersect(currLineStartPos, currLineEndPos, currRenderer.GetPosition(i), currRenderer.GetPosition(i + 1)))
@@ -373,9 +402,31 @@ public class DrawMesh : MonoBehaviour
             }
         }
 
-        return isColliding;
+        //Checking the last line with the points before it.
+        if (CheckPointIsInsideLine(currLineStartPos, currRenderer.GetPosition(currRenderer.positionCount - 2), currRenderer.GetPosition(currRenderer.positionCount - 3)) ||
+            CheckPointIsInsideLine(currRenderer.GetPosition(currRenderer.positionCount - 3), currLineStartPos, currLineEndPos)
+            )
+        {
+            isColliding = true;
+        }
 
+        return isColliding;
     }
+
+
+    bool CheckPointIsInsideLine(Vector3 point, Vector3 linePoint1, Vector3 linePoint2)
+    {
+
+        // If point is between linePoint1 and linePoint2
+        // Normal checking if point is between 2 lines with their bounds.
+
+        if (point.x <= Mathf.Max(linePoint1.x, linePoint2.x) && point.x >= Mathf.Min(linePoint1.x, linePoint2.x) &&
+            point.z <= Mathf.Max(linePoint1.z, linePoint2.z) && point.z >= Mathf.Min(linePoint1.z, linePoint2.z))
+            return true;
+
+        return false;
+    }
+
 
     private bool isLinesIntersect(Vector3 CheckLine_Position1, Vector3 CheckLine_Position2, Vector3 Line_Position1, Vector3 Line_Position2)
     {
@@ -395,26 +446,21 @@ public class DrawMesh : MonoBehaviour
 
         crossVec = Vector3.Cross(vector1, vector2);
         float Angle1 = crossVec.y;
-      //  Debug.Log("Angle 1 = " + Angle1 + " Dot = "+ Vector3.Dot(vector1, vector2));
 
         vector1 = CheckLine_Position2 - Line_Position1;
         vector2 = CheckLine_Position2 - Line_Position2;
         crossVec = Vector3.Cross(vector1, vector2);
         float Angle2 = crossVec.y;
-      //  Debug.Log("Angle 2 = " + Angle2 + " Dot = " + Vector3.Dot(vector1, vector2));
 
         vector1 = Line_Position1 - CheckLine_Position2;
         vector2 = Line_Position1 - CheckLine_Position1;
         crossVec = Vector3.Cross(vector1, vector2);
         float Angle3 = crossVec.y;
-       // Debug.Log("Angle 3 = " + Angle3 + " Dot = " + Vector3.Dot(vector1, vector2));
 
         vector1 = Line_Position2 - CheckLine_Position2;
         vector2 = Line_Position2 - CheckLine_Position1;
         crossVec = Vector3.Cross(vector1, vector2);
         float Angle4 = crossVec.y;
-       // Debug.Log("Angle 4 = " + Angle4 + " Dot = " + Vector3.Dot(vector1, vector2));
-
 
         if (Angle1 > 0 && Angle2 > 0)
             return false;

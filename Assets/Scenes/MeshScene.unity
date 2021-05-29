@@ -44,7 +44,7 @@ RenderSettings:
 LightmapSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 11
-  m_GIWorkflowMode: 1
+  m_GIWorkflowMode: 0
   m_GISettings:
     serializedVersion: 2
     m_BounceScale: 1
@@ -272,7 +272,6 @@ MonoBehaviour:
   lineMaterial: {fileID: 2100000, guid: 6102bf896661f1e42bda69b036ee9533, type: 2}
   wallMaterial: {fileID: 2100000, guid: eaa9174c72f4687418baf2fa31907665, type: 2}
   floorMaterial: {fileID: 2100000, guid: d7be44a0cf77f524aa3fafdefe995c85, type: 2}
-  vertexMaterial: {fileID: 10302, guid: 0000000000000000f000000000000000, type: 0}
 --- !u!4 &1972410428
 Transform:
   m_ObjectHideFlags: 0
