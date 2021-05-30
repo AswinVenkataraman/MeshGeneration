@@ -49,6 +49,8 @@ public class DrawMesh : MonoBehaviour
     //Current selected vertex index used for moving during ModifyingBounds Stage
     int selectedVerticesIndex = -1;
 
+    Triangulator triangulator;
+
 
     private void Awake()
     {
@@ -220,6 +222,7 @@ public class DrawMesh : MonoBehaviour
 
         Vector3[] currFloorVertices = createdFloorMesh.vertices;
         Vector2[] UV1 = createdFloorMesh.uv;
+        int[] triangles = new int[(currFloorVertices.Length - 1) * 3];
 
         for (var i = 0; i < currFloorVertices.Length; i++)
         {
@@ -232,6 +235,8 @@ public class DrawMesh : MonoBehaviour
 
         //Assign and recalculate bounds.
         createdFloorMesh.vertices = currFloorVertices;
+        triangulator.ReassignVertices(UV1);
+        createdFloorMesh.triangles = triangulator.Triangulate();
         createdFloorMesh.uv = UV1;
         createdFloorMesh.RecalculateNormals();
         createdFloorMesh.RecalculateBounds();
@@ -337,10 +342,13 @@ public class DrawMesh : MonoBehaviour
 
             j += 3;
         }
-        Triangulator triangulator = new Triangulator(UV);
-
         //Assign values to the mesh
         floorMesh.vertices = floorVertices;
+
+        if(triangulator==null)
+            triangulator = new Triangulator(UV);
+        else
+            triangulator.ReassignVertices(UV);
         floorMesh.triangles = triangulator.Triangulate();
         floorMesh.uv = UV;
 

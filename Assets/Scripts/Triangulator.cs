@@ -10,6 +10,16 @@ public class Triangulator
         m_points = new List<Vector2>(points);
     }
 
+    public void ReassignVertices(Vector2[] points)
+    {
+        int i = 0;
+        foreach(Vector2 vec2 in points)
+        {
+            m_points[i] = vec2;
+            i++;
+        }
+    }
+
     public int[] Triangulate()
     {
         List<int> indices = new List<int>();
