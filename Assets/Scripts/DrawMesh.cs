@@ -210,19 +210,25 @@ public class DrawMesh : MonoBehaviour
         createdWallMesh.RecalculateBounds();
         createdWallMesh.RecalculateTangents();
 
+        //Same as walls but for floor
         if (createdFloorMesh == null)
             return;
 
         Vector3[] currFloorVertices = createdFloorMesh.vertices;
+        Vector2[] UV1 = createdFloorMesh.uv;
 
         for (var i = 0; i < currFloorVertices.Length; i++)
         {
-            if (i == selectedVerticesIndex/2)
+            if (i == selectedVerticesIndex / 2)
+            {
                 currFloorVertices[i] = worldPosition;
+                UV1[i] = new Vector2(currRenderer.GetPosition(i).x, currRenderer.GetPosition(i).z);
+            }
         }
 
         //Assign and recalculate bounds.
         createdFloorMesh.vertices = currFloorVertices;
+        createdFloorMesh.uv = UV1;
         createdFloorMesh.RecalculateNormals();
         createdFloorMesh.RecalculateBounds();
         createdFloorMesh.RecalculateTangents();
@@ -243,6 +249,7 @@ public class DrawMesh : MonoBehaviour
         Vector2[] UV = new Vector2[currRenderer.positionCount * 2];
 
         int i = 0;
+
         //Wall has normal touch points and for every touch points there is additional point
         //The additional point is touch point + wall height.
         foreach (Vector3 vectorPoints in lineVertices)
@@ -300,10 +307,6 @@ public class DrawMesh : MonoBehaviour
 
         Mesh floorMesh = new Mesh();
 
-        //Problem in surface generation. Need to use Traingulation for the rest of the complex shapes
-        if (currRenderer.positionCount >= 5)
-            return;
-
         Vector3[] floorVertices = new Vector3[currRenderer.positionCount];
         Vector2[] UV = new Vector2[currRenderer.positionCount];
 
@@ -330,10 +333,11 @@ public class DrawMesh : MonoBehaviour
 
             j += 3;
         }
+        Triangulator triangulator = new Triangulator(UV);
 
         //Assign values to the mesh
         floorMesh.vertices = floorVertices;
-        floorMesh.triangles = triangles;
+        floorMesh.triangles = triangulator.Triangulate();
         floorMesh.uv = UV;
 
         //Recalculate bounds
