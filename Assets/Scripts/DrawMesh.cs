@@ -134,10 +134,14 @@ public class DrawMesh : MonoBehaviour
 
             //Get the nearest vector of current click.
             int i = 0;
+            float shortestDistance = float.MaxValue;
              foreach(Vector3 vertices in createdWallMesh.vertices)
             {
-                if(Vector3.Distance(worldPosition, vertices) < 2f && vertices.y < wallHeight)
+                if (Vector3.Distance(worldPosition, vertices) < 2f && vertices.y < wallHeight && Vector3.Distance(worldPosition, vertices)  < shortestDistance)
+                {
                     selectedVerticesIndex = i;
+                    shortestDistance = Vector3.Distance(worldPosition, vertices);
+                }
                 i++;
             }
 
